@@ -1,7 +1,15 @@
 #include <MView/MView.h>
-#include <Windows.h>
+#include <MView/App.h>
 
-INT WINAPI WinMain(HINSTANCE hIntance_, HINSTANCE hPrevInstance_, LPSTR lpCmdLine_, INT iCmdShow_)
+INT WINAPI WinMain(HINSTANCE hInstance_, HINSTANCE hPrevInstance_, LPSTR lpCmdLine_, INT iCmdShow_)
 {
-	return 0;
+    if (!MViewInit(hInstance_)) {
+        return -1;
+    }
+
+    const INT retval = MViewRun(800, 480);
+
+    MViewDeinit();
+
+    return retval;
 }
