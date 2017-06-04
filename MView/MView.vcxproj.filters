@@ -21,6 +21,9 @@
     <ClInclude Include="include\MView\App.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\MView\Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\MView.cpp">
