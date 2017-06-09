@@ -22,6 +22,12 @@ IDWriteTextLayout* dwriteLayout = nullptr;
 
 template<typename T> inline void SafeRelease(T*& t_) { if (t_) { t_->Release(); t_ = nullptr; } }
 
+static FLOAT FontSize2DIP(FLOAT fs_)
+{
+	return fs_ / 72.f * 96.f;
+}
+
+
 class CustomTextRenderer : public IDWriteTextRenderer
 {
 public:
@@ -230,7 +236,7 @@ static BOOL CreateDWriteObjects(HWND hwnd_)
 
 	if (SUCCEEDED(hr)) 
 	{
-		hr = dwriteFactory->CreateTextFormat(L"Consolas", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 64.0f, L"de-DE", &dwriteFormat);
+		hr = dwriteFactory->CreateTextFormat(L"Consolas", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, FontSize2DIP(64.f), L"de-DE", &dwriteFormat);
 	}
 
 	if (SUCCEEDED(hr))
