@@ -15,23 +15,26 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\display.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\gpu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\gpu_desc_heap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gpu_color_buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gpu_resource_barrier.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gpu_depth_stencil_buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\display.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\gpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -39,6 +42,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\gpu_desc_heap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gpu_fb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gpu_color_buffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gpu_depth_stencil_buffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gpu_resource_barrier.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

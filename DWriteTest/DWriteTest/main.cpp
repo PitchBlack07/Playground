@@ -2,6 +2,7 @@
 #include <d2d1_3.h>
 #include <dwrite_3.h>
 #include <strsafe.h>
+#include <math.h>
 
 // constants
 static const wchar_t* ClassName = L"DWriteTestWndClass";
@@ -14,6 +15,7 @@ static HWND Window = nullptr;
 ID2D1Factory* d2dFactory = nullptr;
 ID2D1HwndRenderTarget* d2dRenderTarget = nullptr;
 ID2D1SolidColorBrush* d2dBrush = nullptr;
+ID2D1SolidColorBrush* d2dTextBrush = nullptr;
 
 // dwrite
 IDWriteFactory* dwriteFactory = nullptr;
@@ -92,7 +94,7 @@ public:
 		return S_OK;
 	}
 
-	FLOAT ConvertUnits(UINT32 u_, float upm, float pointsize)
+	FLOAT ConvertUnits(INT32 u_, float upm, float pointsize)
 	{
 		return (u_ / upm) * pointsize;
 	}
@@ -110,13 +112,23 @@ public:
 		DWRITE_FONT_METRICS fm;
 		DWRITE_GLYPH_METRICS* gm = new DWRITE_GLYPH_METRICS[glyphRun->glyphCount];
 
+		DWRITE_MATRIX matrix;
+		GetCurrentTransform(nullptr, &matrix);
+		IDWriteGlyphRunAnalysis* analysis;
+
 		IDWriteFontFace* ff = glyphRun->fontFace;
-		
+		UINT32 cp = 33;
+		UINT16 gi;
+		ff->GetGlyphIndicesW(&cp, 1, &gi);
+
 		ff->GetMetrics(&fm);
 		FLOAT fs = dwriteFormat->GetFontSize();
 		ff->GetDesignGlyphMetrics(glyphRun->glyphIndices, glyphRun->glyphCount, gm, glyphRun->isSideways);
 
 		FLOAT xpos = baselineOriginX;
+
+		D2D1_ANTIALIAS_MODE amode = d2dRenderTarget->GetAntialiasMode();
+		d2dRenderTarget->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
 
 		for (UINT i = 0; i < glyphRun->glyphCount; ++i)
 		{
@@ -129,16 +141,17 @@ public:
 			FLOAT verticalOriginY   = ConvertUnits(gm[i].verticalOriginY, (FLOAT)fm.designUnitsPerEm, fs);
 
 			D2D1_RECT_F rect;
-			rect.bottom = baselineOriginY + advanceHeight - verticalOriginY - bottomSideBearing;
-			rect.top    = baselineOriginY - verticalOriginY + topSideBearing;
-			rect.left   = xpos + leftSideBearing;
-			rect.right  = xpos + advanceWidth - rightSideBearing;
+			rect.bottom = roundf(baselineOriginY + advanceHeight - verticalOriginY - bottomSideBearing);
+			rect.top    = roundf(baselineOriginY - verticalOriginY + topSideBearing);
+			rect.left   = roundf(xpos + leftSideBearing);
+			rect.right  = roundf(xpos + advanceWidth - rightSideBearing);
 
-			xpos += advanceWidth;
+			xpos += glyphRun->glyphAdvances[i];
 			d2dRenderTarget->DrawRectangle(rect, d2dBrush, 1.f, nullptr);
 
 		//	break;
 		}
+		d2dRenderTarget->SetAntialiasMode(amode);
 
 		delete[] gm;
 
@@ -216,8 +229,14 @@ static BOOL CreateDirect2DObjects(HWND hwnd)
 
 	if (SUCCEEDED(hr))
 	{
-		const D2D1_COLOR_F color = { 1, 1, 1, 1 };
+		const D2D1_COLOR_F color = { 1, 1, 0, 1 };
 		hr = d2dRenderTarget->CreateSolidColorBrush(color, &d2dBrush);
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		const D2D1_COLOR_F color = { 1, 1, 1, 1 };
+		hr = d2dRenderTarget->CreateSolidColorBrush(color, &d2dTextBrush);
 	}
 
 	return SUCCEEDED(hr);
@@ -225,6 +244,7 @@ static BOOL CreateDirect2DObjects(HWND hwnd)
 
 static void DestroyDirect2DObjects()
 {
+	SafeRelease(d2dTextBrush);
 	SafeRelease(d2dBrush);
 	SafeRelease(d2dRenderTarget);
 	SafeRelease(d2dFactory);
@@ -236,15 +256,114 @@ static BOOL CreateDWriteObjects(HWND hwnd_)
 
 	if (SUCCEEDED(hr)) 
 	{
-		hr = dwriteFactory->CreateTextFormat(L"Consolas", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, FontSize2DIP(64.f), L"de-DE", &dwriteFormat);
+		hr = dwriteFactory->CreateTextFormat(L"Arial", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, FontSize2DIP(64.f), L"de-DE", &dwriteFormat);
 	}
+
+	IDWriteFontCollection* fontCollection = nullptr;
+	dwriteFormat->GetFontCollection(&fontCollection);
+
+	const UINT32 familyCount = fontCollection->GetFontFamilyCount();
+	UINT32 idx;
+	BOOL exists;
+	fontCollection->FindFamilyName(L"Arial", &idx, &exists);
+	if (exists)
+	{
+		IDWriteFontFamily* family;
+		fontCollection->GetFontFamily(idx, &family);
+
+		IDWriteFont* font;
+		family->GetFirstMatchingFont(DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STRETCH_NORMAL, DWRITE_FONT_STYLE_NORMAL, &font);
+		DWRITE_FONT_METRICS fm;
+		font->GetMetrics(&fm);
+
+		IDWriteFontFace* face;
+		font->CreateFontFace(&face);
+		for (UINT i = 33; i <= 126; ++i)
+		{
+			UINT16 glyphIdx;
+			face->GetGlyphIndicesW(&i, 1, &glyphIdx);
+			DWRITE_GLYPH_METRICS glyphMetrics;
+			face->GetDesignGlyphMetrics(&glyphIdx, 1, &glyphMetrics);
+
+			FLOAT advanceX = (FLOAT)glyphMetrics.advanceWidth / (FLOAT)fm.designUnitsPerEm * FontSize2DIP(64.f);
+
+			
+			DWRITE_GLYPH_OFFSET offset;
+			offset.advanceOffset = 0;
+			offset.ascenderOffset = 0;
+
+			DWRITE_GLYPH_RUN gr;
+			gr.bidiLevel     = 0;
+			gr.fontEmSize    = 64.f / 72.f * 96.f;
+			gr.fontFace      = face;
+			gr.glyphAdvances = &advanceX;
+			gr.glyphCount    = 1;
+			gr.glyphOffsets  = &offset;
+			gr.isSideways    = FALSE;
+			gr.glyphIndices  = &glyphIdx;
+
+			IDWriteGlyphRunAnalysis* analysis;
+			dwriteFactory->CreateGlyphRunAnalysis(&gr, 1, nullptr, DWRITE_RENDERING_MODE_CLEARTYPE_NATURAL, DWRITE_MEASURING_MODE_NATURAL, 0.f, 0.f, &analysis);
+
+			RECT bounds;
+			analysis->GetAlphaTextureBounds(DWRITE_TEXTURE_CLEARTYPE_3x1, &bounds);
+
+			UINT width = bounds.right - bounds.left;
+			UINT height = bounds.bottom - bounds.top;
+
+			BYTE* mem = (BYTE*)malloc(3 * width*height);
+			analysis->CreateAlphaTexture(DWRITE_TEXTURE_CLEARTYPE_3x1, &bounds, mem, 3*width * height);
+
+			free(mem);
+
+
+
+			SafeRelease(analysis);
+
+		}
+		// code points
+		//face->GetGlyphIndicesW()
+		//face->
+
+		//DWRITE_GLYPH_RUN gr;
+		//gr.
+ 		SafeRelease(face);
+		SafeRelease(font);
+		SafeRelease(family);
+	}
+	for (UINT i = 0; i < familyCount; ++i)
+	{
+		IDWriteFontFamily* fontFamily = nullptr;
+		fontCollection->GetFontFamily(i, &fontFamily);
+
+		const UINT32 fontCount = fontFamily->GetFontCount();
+		for (UINT32 j = 0; j < fontCount; ++j)
+		{
+			IDWriteFont* font;
+			fontFamily->GetFont(j, &font);
+			
+			DWRITE_FONT_METRICS metrics;
+
+			
+			font->GetMetrics(&metrics);
+			DWRITE_FONT_STRETCH fontStretch = font->GetStretch();
+			DWRITE_FONT_STYLE fontStyle = font->GetStyle();
+			DWRITE_FONT_WEIGHT fontWeight = font->GetWeight();
+
+
+			SafeRelease(font);
+		}
+		SafeRelease(fontFamily);
+	}
+	SafeRelease(fontCollection);
+
 
 	if (SUCCEEDED(hr))
 	{
 		RECT cr;
 		GetClientRect(hwnd_, &cr);
 
-		const wchar_t* text = L"Hallo faquam!";
+		const wchar_t* text = L"l";
 		size_t len = 0;
 		StringCchLength(text, STRSAFE_MAX_CCH, &len);
 		hr = dwriteFactory->CreateTextLayout(text, (UINT32)len, dwriteFormat, cr.right - cr.left, cr.bottom - cr.top, &dwriteLayout);
@@ -333,7 +452,8 @@ static LRESULT WM_PAINT_handler(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpara
 	d2dRenderTarget->BeginDraw();
 	d2dRenderTarget->Clear(color);
 
-	d2dRenderTarget->DrawTextLayout(origin, dwriteLayout, d2dBrush);
+	d2dRenderTarget->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
+	d2dRenderTarget->DrawTextLayout(origin, dwriteLayout, d2dTextBrush);
 	dwriteLayout->Draw(nullptr, &customTextRenderer, 0.f, 0.f);
 	d2dRenderTarget->EndDraw();
 
