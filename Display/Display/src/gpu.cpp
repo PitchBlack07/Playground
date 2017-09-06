@@ -51,7 +51,7 @@ static bool adapter_init()
 
 static bool d3d_device_init()
 {
-	if (SUCCEEDED(D3D12CreateDevice(gpudrv.dxgiAdapter, D3D_FEATURE_LEVEL_12_0, __uuidof(*gpudrv.d3dDevice), (void**)&gpudrv.d3dDevice))) {
+	if (SUCCEEDED(D3D12CreateDevice(gpudrv.dxgiAdapter, D3D_FEATURE_LEVEL_11_0, __uuidof(*gpudrv.d3dDevice), (void**)&gpudrv.d3dDevice))) {
 		SET_DEBUG_NAME(gpudrv.d3dDevice, "D3D Device");
 		return true;
 	}
