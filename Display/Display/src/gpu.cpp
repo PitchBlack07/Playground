@@ -1,45 +1,232 @@
 #pragma once
 #include "utils.h"
+#include "display.h"
 #include "gpu.h"
 #include "gpu_desc_heap.h"
 #include <strsafe.h>
 #include <d3dcommon.h>
 #include <nmmintrin.h>
-struct GPU_ gpudrv;
 
-template<typename T>
-static UINT get_bit_count()
+//
+// Global variable
+//
+GPU gpudrv;
+
+static const TCHAR* ClassName = TEXT("gpu_window_class");
+static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+static BOOL gpu_create_window(HINSTANCE hInstance_, UINT width_, UINT height_)
 {
-	return sizeof(T) * 8;
-}
+	WNDCLASS wc;
 
+	wc.cbClsExtra    = 0;
+	wc.cbWndExtra    = 0;
+	wc.hbrBackground = (HBRUSH)GetStockObject(COLOR_BACKGROUND);
+	wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon         = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hInstance     = hInstance_;
+	wc.lpfnWndProc   = &WndProc;
+	wc.lpszClassName = ClassName;
+	wc.lpszMenuName  = nullptr;
+	wc.style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
 
-static UINT count_active_bits(UINT* data_, UINT size_)
-{
-	UINT retval = 0;
-	for (UINT i = 0; i <= size_; ++i)
-	{
-		retval += _mm_popcnt_u32(data_[i]);
+	if (!RegisterClass(&wc)) {
+		return FALSE;
 	}
-	return retval;
+
+	gpudrv.hInstance = hInstance_;
+	gpudrv.hwnd      = CreateWindow(ClassName, TEXT("Display"), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, (INT)width_, (INT)height_, nullptr, nullptr, hInstance_, nullptr);
+
+	if (gpudrv.hwnd == NULL) {
+		return FALSE;
+	}
+
+	ShowWindow(gpudrv.hwnd, SW_SHOW);
+
+	return TRUE;
 }
 
-static UINT count_active_bits(UINT64 value_)
+
+
+static void gpu_wait_for_completion()
 {
-	const UINT* value = (UINT*)value_;
-	return _mm_popcnt_u32(value[0]) + _mm_popcnt_u32(value[1]);
+	ID3D12Fence* fence = nullptr;
+
+	if (FAILED(gpudrv.d3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence), (void**)&fence))) {
+		return;
+	}
+
+	gpudrv.d3dGraphicsQueue->Signal(fence, 1);
+
+	if (fence->GetCompletedValue() < 1) {
+		fence->SetEventOnCompletion(1, gpudrv.d3dFenceEvent);
+
+		WaitForSingleObject(gpudrv.d3dFenceEvent, INFINITE);
+	}
+
+	SAFE_RELEASE(fence);
+}
+
+static bool gpu_create_system_color_buffers()
+{
+	for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
+	{
+		if (FAILED(gpudrv.dxgiSwapChain->GetBuffer(
+			i,
+			__uuidof(ID3D12Resource),
+			(void**)&gpudrv.sysColorBuffers[i].resource[0])))
+		{
+			return false;
+		}
+
+		if (!gpu_desc_heap_create_handle(&gpudrv.d3dRtvHeap, &gpudrv.sysColorBuffers[i].handle[0])) {
+			return false;
+		}
+
+		D3D12_RENDER_TARGET_VIEW_DESC rtvd;
+		rtvd.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+		rtvd.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+		rtvd.Texture2D.MipSlice = 0;
+		rtvd.Texture2D.PlaneSlice = 0;
+
+		gpudrv.d3dDevice->CreateRenderTargetView(
+			gpudrv.sysColorBuffers[i].resource[0],
+			&rtvd,
+			gpudrv.sysColorBuffers[i].handle[0]);
+
+		gpudrv.sysColorBuffers[i].mask = 0x1;
+		gpudrv.sysColorBuffers[i].states[0] = D3D12_RESOURCE_STATE_COMMON;
+	}
+
+	return true;
+	//D3D12_HEAP_PROPERTIES hp;
+	//hp.Type                 = D3D12_HEAP_TYPE_DEFAULT;
+	//hp.CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	//hp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	//hp.CreationNodeMask     = 0x00;
+	//hp.VisibleNodeMask      = 0x00;
+
+
+	//D3D12_RESOURCE_DESC rd;
+	//rd.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	//rd.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+	//rd.Width              = colordesc.Width;
+	//rd.Height             = colordesc.Height;
+	//rd.DepthOrArraySize   = 1;
+	//rd.MipLevels          = 1;
+	//rd.Format             = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	//rd.SampleDesc.Count   = 1;
+	//rd.SampleDesc.Quality = 0;
+	//rd.Layout             = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	//rd.Flags              = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	//if (SUCCEEDED(gpudrv.d3dDevice->CreateCommittedResource(
+	//	&hp, 
+	//	D3D12_HEAP_FLAG_NONE, 
+	//	&rd, 
+	//	D3D12_RESOURCE_STATE_DEPTH_WRITE, 
+	//	NULL, 
+	//	__uuidof(ID3D12Resource), 
+	//	(void**)&gpudrv.framebuffer[0].resources.depthstencil))) 
+	//{
+	//	gpudrv.framebuffer[1].resources.depthstencil = gpudrv.framebuffer[0].resources.depthstencil;
+	//	gpudrv.framebuffer[2].resources.depthstencil = gpudrv.framebuffer[0].resources.depthstencil;
+
+	//	gpudrv.framebuffer[0].resources.depthstencil->AddRef();
+	//	gpudrv.framebuffer[0].resources.depthstencil->AddRef();
+
+	//	return true;
+	//}
+	//return false;
+}
+
+static void gpu_destroy_system_color_buffers()
+{
+	for (UINT i = 0; i < _countof(gpudrv.sysColorBuffers); ++i)
+	{
+		gpu_desc_heap_destroy_handle(
+			&gpudrv.d3dRtvHeap,
+			gpudrv.sysColorBuffers[i].handle[0]);
+
+		SAFE_RELEASE(gpudrv.sysColorBuffers[i].resource[0]);
+	}
+}
+
+static bool gpu_create_system_depth_stencil_buffer()
+{
+
+	DXGI_SWAP_CHAIN_DESC scd;
+	gpudrv.dxgiSwapChain->GetDesc(&scd);
+
+	D3D12_HEAP_PROPERTIES hp;
+	hp.Type                 = D3D12_HEAP_TYPE_DEFAULT;
+	hp.CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	hp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	hp.CreationNodeMask     = 0x00;
+	hp.VisibleNodeMask      = 0x00;
+
+
+	D3D12_RESOURCE_DESC rd;
+	rd.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rd.Alignment          = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+	rd.Width              = (UINT)scd.BufferDesc.Width;
+	rd.Height             = (UINT)scd.BufferDesc.Height;
+	rd.DepthOrArraySize   = 1;
+	rd.MipLevels          = 1;
+	rd.Format             = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	rd.SampleDesc.Count   = 1;
+	rd.SampleDesc.Quality = 0;
+	rd.Layout             = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	rd.Flags              = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	D3D12_CLEAR_VALUE cv    = {};
+	cv.DepthStencil.Depth   = 1.f;
+	cv.DepthStencil.Stencil = 0;
+	cv.Format               = rd.Format;
+
+	if (SUCCEEDED(gpudrv.d3dDevice->CreateCommittedResource(
+		&hp, 
+		D3D12_HEAP_FLAG_NONE, 
+		&rd, 
+		D3D12_RESOURCE_STATE_DEPTH_WRITE, 
+		&cv, 
+		__uuidof(ID3D12Resource), 
+		(void**)&gpudrv.sysDepthStencilBuffer.resource)))
+	{
+		gpudrv.sysDepthStencilBuffer.state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+		
+		if (gpu_desc_heap_create_handle(&gpudrv.d3dDsvHeap, &gpudrv.sysDepthStencilBuffer.handle))
+		{
+			D3D12_DEPTH_STENCIL_VIEW_DESC dsvd;
+			dsvd.Flags              = D3D12_DSV_FLAG_NONE;
+			dsvd.Format             = rd.Format;
+			dsvd.Texture2D.MipSlice = 0;
+			dsvd.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE2D;
+
+			gpudrv.d3dDevice->CreateDepthStencilView(gpudrv.sysDepthStencilBuffer.resource, &dsvd, gpudrv.sysDepthStencilBuffer.handle);
+			return true;
+		}
+
+		SAFE_RELEASE(gpudrv.sysDepthStencilBuffer.resource);
+	}
+	return false;
+}
+
+static void gpu_destroy_system_depth_stencil_buffer()
+{
+	gpu_desc_heap_destroy_handle(&gpudrv.d3dDsvHeap, gpudrv.sysDepthStencilBuffer.handle);
+	SAFE_RELEASE(gpudrv.sysDepthStencilBuffer.resource);
 }
 
 static bool adapter_init() 
 {
-	DXGI_ADAPTER_DESC1 desc;
-	char buffer[256];
-
 	if (FAILED(gpudrv.dxgiFactory->EnumAdapters1(0, &gpudrv.dxgiAdapter))) {
 		return false;
 	}
 
 #ifdef _DEBUG
+	char buffer[256];
+	DXGI_ADAPTER_DESC1 desc;
 	gpudrv.dxgiAdapter->GetDesc1(&desc);
 
 	StringCchPrintfA(buffer, sizeof(buffer), "Adapter [%s]", desc.Description);
@@ -109,111 +296,58 @@ static bool dxgi_swap_chain_init(HWND hwnd_)
 	desc.BufferDesc.RefreshRate.Numerator   = 0;
 	desc.BufferDesc.Scaling                 = DXGI_MODE_SCALING_UNSPECIFIED;
 	desc.BufferDesc.ScanlineOrdering        = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-	desc.Flags                              = 0;
+	desc.Flags                              = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 	desc.OutputWindow                       = hwnd_;
 	desc.SampleDesc.Count                   = 1;
 	desc.SampleDesc.Quality                 = 0;
 	desc.SwapEffect                         = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	desc.Windowed                           = TRUE;
 
-	return SUCCEEDED(gpudrv.dxgiFactory->CreateSwapChain(gpudrv.d3dGraphicsQueue, &desc, &gpudrv.dxgiSwapChain));
-}
-
-static bool gpu_desc_heap_init()
-{
-	D3D12_DESCRIPTOR_HEAP_DESC dhd;
-	dhd.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	dhd.NumDescriptors = sizeof(gpudrv.d3dRtvHeap.d3dMask) * 8;
-	dhd.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	dhd.NodeMask = 0x00;
-
-	if (FAILED(gpudrv.d3dDevice->CreateDescriptorHeap(&dhd, __uuidof(*gpudrv.d3dRtvHeap.d3dDescHeap), (void**)&gpudrv.d3dRtvHeap.d3dDescHeap))) {
+	IDXGISwapChain* sc = NULL;
+	if (FAILED(gpudrv.dxgiFactory->CreateSwapChain(gpudrv.d3dGraphicsQueue, &desc, &sc))) {
 		return false;
 	}
 
-	dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	if (FAILED(gpudrv.d3dDevice->CreateDescriptorHeap(&dhd, __uuidof(*gpudrv.d3dDsvHeap.d3dDescHeap), (void**)&gpudrv.d3dDsvHeap.d3dDescHeap))) {
+	HRESULT hr = sc->QueryInterface(__uuidof(*gpudrv.dxgiSwapChain), (void**)&gpudrv.dxgiSwapChain);
+	SAFE_RELEASE(sc);
+
+	if (FAILED(hr)) {
 		return false;
 	}
 
-	gpudrv.d3dRtvHeap.offset = gpudrv.d3dRtvHeap.d3dDescHeap->GetCPUDescriptorHandleForHeapStart();
-	gpudrv.d3dRtvHeap.stride = gpudrv.d3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	gpudrv.d3dDsvHeap.offset = gpudrv.d3dDsvHeap.d3dDescHeap->GetCPUDescriptorHandleForHeapStart();
-	gpudrv.d3dDsvHeap.stride = gpudrv.d3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-
-	SET_DEBUG_NAME(gpudrv.d3dRtvHeap.d3dDescHeap, "Heap: DESC RTV");
-	SET_DEBUG_NAME(gpudrv.d3dDsvHeap.d3dDescHeap, "Heap: DESC DSV");
+	gpudrv.dxgiSwapChain->SetMaximumFrameLatency(SWAP_CHAIN_BUFFER_COUNT);
 
 	return true;
 }
 
-static void gpu_desc_heap_deinit()
-{
-	SAFE_RELEASE(gpudrv.d3dRtvHeap.d3dDescHeap);
-	SAFE_RELEASE(gpudrv.d3dDsvHeap.d3dDescHeap);
-}
-
-static bool gpu_create_system_framebuffers()
+static bool gpu_command_allocators_create()
 {
 	for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
 	{
-		if (FAILED(gpudrv.dxgiSwapChain->GetBuffer(0, __uuidof(ID3D12Resource), (void**)&gpudrv.framebuffer[i].resources.color[0]))) {
+		if (FAILED(gpudrv.d3dDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator), (void**)&gpudrv.d3dCommandAllocator[i]))) {
 			return false;
 		}
-
-		D3D12_RENDER_TARGET_VIEW_DESC rtvd;
-		rtvd.Format               = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-		rtvd.ViewDimension        = D3D12_RTV_DIMENSION_TEXTURE2D;
-		rtvd.Texture2D.MipSlice   = 0;
-		rtvd.Texture2D.PlaneSlice = 0;
-
-		if (!gpu_create_rtv_descritpor_handle(&gpudrv.framebuffer[i].handles.rtv[0])) {
-			return false;
-		}
-
-		gpudrv.d3dDevice->CreateRenderTargetView(gpudrv.framebuffer[i].resources.color[0], &rtvd, gpudrv.framebuffer[i].handles.rtv[0]);
 	}
 	return true;
 }
 
-static void gpu_destroy_system_framebuffers()
+static void gpu_command_allocators_destroy()
 {
 	for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
 	{
-		gpu_destroy_rtv_descriptor_handle(gpudrv.framebuffer[i].handles.rtv[i]);
-		SAFE_RELEASE(gpudrv.framebuffer[i].resources.color[0]);
-
-		gpudrv.framebuffer[i].handles.rtv[i] = {};
+		SAFE_RELEASE(gpudrv.d3dCommandAllocator[i]);
 	}
 }
 
-
-static bool gpu_tex_heap_init()
+static bool gpu_create_fence()
 {
-	D3D12_HEAP_DESC hd;
-	hd.SizeInBytes                = DEFAULT_TEXTURE_HEAP_SIZE;
-	hd.Properties.Type            = D3D12_HEAP_TYPE_DEFAULT;
-	hd.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	hd.Properties.CreationNodeMask = 0x00;
-	hd.Properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	hd.Properties.VisibleNodeMask = 0x00;
-	hd.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-	hd.Flags = D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES;
-	
-	
-	if (FAILED(gpudrv.d3dDevice->CreateHeap(&hd, __uuidof(*gpudrv.d3dTexHeap.d3dHeap), (void**)&gpudrv.d3dTexHeap.d3dHeap))) {
+	if (FAILED(gpudrv.d3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence), (void**)&gpudrv.d3dFence))) {
 		return false;
 	}
 
-	SET_DEBUG_NAME(gpudrv.d3dTexHeap.d3dHeap, "Texture Heap");
+	gpudrv.d3dFenceEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-	return true;
-}
-
-static void gpu_tex_heap_deinit()
-{
-	SAFE_RELEASE(gpudrv.d3dTexHeap.d3dHeap);
+	return gpudrv.d3dFenceEvent != NULL;
 }
 
 bool gpu_init(HWND hwnd_)
@@ -248,26 +382,51 @@ bool gpu_init(HWND hwnd_)
 		return false;
 	}
 
-	if (!gpu_desc_heap_init()) {
+	if (!gpu_desc_heap_init(&gpudrv.d3dRtvHeap, D3D12_DESCRIPTOR_HEAP_TYPE_RTV)) {
 		return false;
 	}
 
-	if (!gpu_tex_heap_init()) {
+	if (!gpu_desc_heap_init(&gpudrv.d3dDsvHeap, D3D12_DESCRIPTOR_HEAP_TYPE_DSV)) {
 		return false;
 	}
 
-	if (!gpu_create_system_framebuffers()) {
+	if (!gpu_command_allocators_create()) {
+		return false;
+	}
+
+	if (!gpu_create_system_color_buffers()) {
+		return false;
+	}
+
+	if (!gpu_create_system_depth_stencil_buffer()) {
+		return false;
+	}
+
+	if (!gpu_create_fence()) {
 		return false;
 	}
 
 	return true;
 }
 
+
+static void gpu_destroy_fence()
+{
+	CloseHandle(gpudrv.d3dFenceEvent);
+	SAFE_RELEASE(gpudrv.d3dFence);
+}
+
 void gpu_deinit()
 {
-	gpu_destroy_system_framebuffers();
-	gpu_tex_heap_deinit();
-	gpu_desc_heap_deinit();
+	gpu_wait_for_completion();
+
+	gpu_destroy_fence();
+	gpu_destroy_system_depth_stencil_buffer();
+	gpu_destroy_system_color_buffers();
+	gpu_command_allocators_destroy();
+	
+	gpu_desc_heap_deinit(&gpudrv.d3dDsvHeap);
+	gpu_desc_heap_deinit(&gpudrv.d3dRtvHeap);
 
 	SAFE_RELEASE(gpudrv.dxgiSwapChain);
 	SAFE_RELEASE(gpudrv.d3dCopyQueue);
@@ -280,34 +439,108 @@ void gpu_deinit()
 	SAFE_RELEASE(gpudrv.d3dDebug);
 }
 
-static BOOL get_free_index(UINT64 mask_, UINT* index_)
+BOOL gpu_begin_frame()
 {
-	DWORD index;
-	if (BitScanForward64(&index, ~mask_))
+	if (gpudrv.dxgiSwapChain == NULL)
 	{
-		*index_ = (UINT)index;
-		return TRUE;
+		return FALSE;
 	}
-	return FALSE;
+
+	gpudrv.frameId++;
+
+	HANDLE swaplock = gpudrv.dxgiSwapChain->GetFrameLatencyWaitableObject();
+	WaitForSingleObject(swaplock, INFINITE);
+
+	const UINT64 completedValue = gpudrv.d3dFence->GetCompletedValue();
+
+	if (completedValue + SWAP_CHAIN_BUFFER_COUNT < gpudrv.frameId) {
+
+		gpudrv.d3dFence->SetEventOnCompletion(gpudrv.frameId - SWAP_CHAIN_BUFFER_COUNT, gpudrv.d3dFenceEvent);
+
+		WaitForSingleObject(gpudrv.d3dFence, INFINITE);
+	}
+	
+	return TRUE;
 }
 
-BOOL gpu_create_rtv_descritpor_handle(D3D12_CPU_DESCRIPTOR_HANDLE* handle_)
+void gpu_end_frame()
 {
-	DWORD index;
-	if (BitScanForward64(&index, ~gpudrv.d3dRtvHeap.d3dMask))
-	{
-		gpudrv.d3dRtvHeap.d3dMask |= 1ULL << index;
-
-		handle_->ptr = gpudrv.d3dRtvHeap.offset.ptr + index * gpudrv.d3dRtvHeap.stride;
-
-		return true;
-	}
-	return false;
+	gpudrv.d3dGraphicsQueue->Signal(gpudrv.d3dFence, gpudrv.frameId);
+	gpudrv.dxgiSwapChain->Present(0, 0);
 }
 
-void gpu_destroy_rtv_descriptor_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle_)
+ID3D12CommandAllocator* gpu_get_command_allocator()
 {
-	DWORD index                = (handle_.ptr - gpudrv.d3dRtvHeap.offset.ptr) / gpudrv.d3dRtvHeap.stride;
-	UINT64 mask                = 1ULL << index;
-	gpudrv.d3dRtvHeap.d3dMask &= ~mask;
+	return gpudrv.d3dCommandAllocator[gpudrv.frameId % SWAP_CHAIN_BUFFER_COUNT];
+}
+
+BOOL gpu_start(HINSTANCE hInstance, UINT width_, UINT height_)
+{
+	return gpu_create_window(hInstance, width_, height_);
+}
+
+void gpu_stop()
+{
+	UnregisterClass(ClassName, gpudrv.hInstance);
+}
+
+static LRESULT WM_CLOSE_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
+{
+	gpu_deinit();
+	DestroyWindow(hwnd_);
+	return 0;
+}
+
+static LRESULT WM_DESTROY_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
+{
+	PostQuitMessage(0);
+	return 0;
+}
+
+static LRESULT WM_CREATE_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
+{
+	return gpu_init(hwnd_) ? 0 : -1;
+}
+
+static LRESULT WM_SIZE_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
+{
+	UINT width = (UINT)LOWORD(lparam_);
+	UINT height = (UINT)HIWORD(lparam_);
+
+	gpu_wait_for_completion();
+	gpu_destroy_system_color_buffers();
+	gpu_destroy_system_depth_stencil_buffer();
+
+	DXGI_SWAP_CHAIN_DESC desc;
+	gpudrv.dxgiSwapChain->GetDesc(&desc);
+
+	if (FAILED(gpudrv.dxgiSwapChain->ResizeBuffers(SWAP_CHAIN_BUFFER_COUNT, width, height, desc.BufferDesc.Format, desc.Flags))) {
+		return -1;
+	}
+
+	if (!gpu_create_system_color_buffers()) {
+		return -1;
+	}
+
+	if (!gpu_create_system_depth_stencil_buffer()) {
+		return -1;
+	}
+
+	return 0;
+}
+
+#define IN_CASE_HANDLE(x) case x: return x##_Handler(hwnd_, msg_, wparam_, lparam_)
+
+static LRESULT CALLBACK WndProc(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
+{
+	switch (msg_)
+	{
+	IN_CASE_HANDLE(WM_CREATE);
+	IN_CASE_HANDLE(WM_SIZE);
+	IN_CASE_HANDLE(WM_CLOSE);
+	IN_CASE_HANDLE(WM_DESTROY);
+
+	default:
+		return DefWindowProc(hwnd_, msg_, wparam_, lparam_);
+	}
 }
