@@ -146,20 +146,57 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\gpu.h" />
+    <ClInclude Include="src\gpu_deletion_queue.h" />
+    <ClInclude Include="src\gpu_pso.h" />
     <ClInclude Include="src\gpu_color_buffer.h" />
     <ClInclude Include="src\gpu_depth_stencil_buffer.h" />
     <ClInclude Include="src\gpu_desc_heap.h" />
     <ClInclude Include="src\gpu_fb.h" />
     <ClInclude Include="src\gpu_resource_barrier.h" />
+    <ClInclude Include="src\gpu_ring_buffer.h" />
     <ClInclude Include="src\utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\gpu.cpp" />
+    <ClCompile Include="src\gpu_pso.cpp" />
     <ClCompile Include="src\gpu_color_buffer.cpp" />
     <ClCompile Include="src\gpu_depth_stencil_buffer.cpp" />
     <ClCompile Include="src\gpu_desc_heap.cpp" />
     <ClCompile Include="src\gpu_resource_barrier.cpp" />
     <ClCompile Include="src\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shader\quad.hlsl">
+      <FileType>Document</FileType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">vs_quad_main</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">vs_quad_main</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">vs_quad_main</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">vs_quad_main</VariableName>
+    </FxCompile>
+    <FxCompile Include="src\quad_ps.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)src\shader\%(Filename).h</HeaderFileOutput>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ps_quad_main</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">ps_quad_main</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">ps_quad_main</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">ps_quad_main</VariableName>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

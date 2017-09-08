@@ -18,6 +18,17 @@
 #define DEFAULT_TEXTURE_HEAP_SIZE 16777216
 #endif
 
+typedef BOOL (CALLBACK* gpu_callback_init)();
+typedef void (CALLBACK* gpu_callback_deinit)();
+typedef void (CALLBACK* gpu_callback_draw)();
+
+struct GPU_CALLBACKS
+{
+	gpu_callback_init   init;
+	gpu_callback_deinit deinit;
+	gpu_callback_draw   draw;
+};
+
 struct GPU
 {
 	HWND                     hwnd;
@@ -42,10 +53,11 @@ struct GPU
 	gpu_depth_stencil_buffer sysDepthStencilBuffer;
 
 	UINT64                   frameId;
+	GPU_CALLBACKS            callbacks;
 };
 
 
-BOOL gpu_start(HINSTANCE hInstance, UINT width_, UINT height_);
+INT gpu_start(HINSTANCE hInstance, GPU_CALLBACKS* callbacks_, UINT width_, UINT height_);
 void gpu_stop();
 
 BOOL gpu_begin_frame();

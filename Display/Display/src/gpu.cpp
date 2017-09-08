@@ -240,6 +240,15 @@ static bool d3d_device_init()
 {
 	if (SUCCEEDED(D3D12CreateDevice(gpudrv.dxgiAdapter, D3D_FEATURE_LEVEL_11_0, __uuidof(*gpudrv.d3dDevice), (void**)&gpudrv.d3dDevice))) {
 		SET_DEBUG_NAME(gpudrv.d3dDevice, "D3D Device");
+
+		D3D12_FEATURE_DATA_ARCHITECTURE data = {};
+		gpudrv.d3dDevice->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE, &data, sizeof(data));
+
+		D3D_FEATURE_LEVEL levels[5];
+		D3D12_FEATURE_DATA_FEATURE_LEVELS l;
+		l.NumFeatureLevels = _countof(levels);
+		l.pFeatureLevelsRequested = levels;
+		gpudrv.d3dDevice->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &l, sizeof(l));
 		return true;
 	}
 
@@ -352,8 +361,6 @@ static bool gpu_create_fence()
 
 bool gpu_init(HWND hwnd_)
 {
-	memset(&gpudrv, 0, sizeof(gpudrv));
-
 #ifdef _DEBUG
 	if (FAILED(D3D12GetDebugInterface(__uuidof(*gpudrv.d3dDebug), (void**)&gpudrv.d3dDebug))) {
 		return false;
@@ -474,9 +481,39 @@ ID3D12CommandAllocator* gpu_get_command_allocator()
 	return gpudrv.d3dCommandAllocator[gpudrv.frameId % SWAP_CHAIN_BUFFER_COUNT];
 }
 
-BOOL gpu_start(HINSTANCE hInstance, UINT width_, UINT height_)
+INT gpu_start(HINSTANCE hInstance, GPU_CALLBACKS* callbacks_, UINT width_, UINT height_)
 {
-	return gpu_create_window(hInstance, width_, height_);
+	memset(&gpudrv, 0, sizeof(gpudrv));
+
+	gpudrv.callbacks = *callbacks_;
+
+	if (!gpu_create_window(hInstance, width_, height_))
+	{
+		return -1;
+	}
+
+	if (!gpudrv.callbacks.draw)
+	{
+		return -1;
+	}
+
+	MSG msg = {};
+
+	while (msg.message != WM_QUIT)
+	{
+		gpudrv.callbacks.draw();
+
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			if (msg.message == WM_QUIT)
+				break;
+
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
+
+	return (INT)msg.lParam;
 }
 
 void gpu_stop()
@@ -486,6 +523,11 @@ void gpu_stop()
 
 static LRESULT WM_CLOSE_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
 {
+	if (gpudrv.callbacks.deinit)
+	{
+		gpudrv.callbacks.deinit();
+	}
+
 	gpu_deinit();
 	DestroyWindow(hwnd_);
 	return 0;
@@ -499,7 +541,15 @@ static LRESULT WM_DESTROY_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM 
 
 static LRESULT WM_CREATE_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
 {
-	return gpu_init(hwnd_) ? 0 : -1;
+	if (gpu_init(hwnd_))
+	{
+		if (gpudrv.callbacks.init)
+		{
+			return (*gpudrv.callbacks.init)();
+		}
+		return 0;
+	}
+	return -1;
 }
 
 static LRESULT WM_SIZE_Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
