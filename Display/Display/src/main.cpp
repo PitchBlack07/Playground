@@ -2,22 +2,32 @@
 #include <Windows.h>
 #include "gpu.h"
 #include "gpu_pso.h"
+#include "gpu_ring_buffer.h"
 #include "utils.h"
 #include <d3d12.h>
-#include "shader\quad.h"
+#include "shader\quad_vs.h"
 #include "shader\quad_ps.h"
 
 ID3D12PipelineState* d3dPso;
 ID3D12RootSignature* d3dSignature;
+gpu_ring_buffer      d3dRingBuffer;
 
-BOOL frame_init()
+D3D12_GPU_VIRTUAL_ADDRESS d3dCBV;
+
+BOOL CALLBACK frame_init()
 {
+	D3D12_ROOT_PARAMETER rpd;
+	rpd.ParameterType             = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rpd.ShaderVisibility          = D3D12_SHADER_VISIBILITY_PIXEL;
+	rpd.Descriptor.RegisterSpace  = 0;
+	rpd.Descriptor.ShaderRegister = 0;
+
 	D3D12_ROOT_SIGNATURE_DESC rsd;
-	rsd.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
-	rsd.NumParameters = 0;
+	rsd.Flags             = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+	rsd.NumParameters     = 1;
 	rsd.NumStaticSamplers = 0;
-	rsd.pParameters = nullptr;
-	rsd.pStaticSamplers = nullptr;
+	rsd.pParameters       = &rpd;
+	rsd.pStaticSamplers   = nullptr;
 
 	ID3DBlob* signature, *error;
 
@@ -27,10 +37,10 @@ BOOL frame_init()
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psd;
 	gpu_gps_init_default(&psd);
 
-	psd.VS.BytecodeLength  = sizeof(vs_quad_main);
-	psd.VS.pShaderBytecode = vs_quad_main;
-	psd.PS.BytecodeLength  = sizeof(ps_quad_main);
-	psd.PS.pShaderBytecode = ps_quad_main;
+	psd.VS.BytecodeLength  = sizeof(quad_vs_main);
+	psd.VS.pShaderBytecode = quad_vs_main;
+	psd.PS.BytecodeLength  = sizeof(quad_ps_main);
+	psd.PS.pShaderBytecode = quad_ps_main;
 
 	psd.RTVFormats[0]         = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	psd.DSVFormat             = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -40,20 +50,44 @@ BOOL frame_init()
 
 	BOOL ok = SUCCEEDED(gpudrv.d3dDevice->CreateGraphicsPipelineState(&psd, __uuidof(*d3dPso), (void**)&d3dPso));
 
+	gpu_ring_buffer_init(&d3dRingBuffer);
+
 	SAFE_RELEASE(signature);
 
 	return ok;
 }
 
-void frame_deinit()
+void CALLBACK frame_deinit()
 {
+	gpu_ring_buffer_deinit(&d3dRingBuffer);
 	SAFE_RELEASE(d3dSignature);
 	SAFE_RELEASE(d3dPso);
 }
 
-void draw_frame()
+void CALLBACK draw_frame()
 {
 	gpu_begin_frame();
+	gpu_ring_buffer_release_memory(&d3dRingBuffer, gpudrv.d3dFence->GetCompletedValue());
+
+	if (gpudrv.frameId == 1)
+	{
+		d3dCBV = gpu_ring_buffer_alloc(&d3dRingBuffer, sizeof(float) * 4, gpudrv.frameId);
+
+		D3D12_RANGE range;
+		range.Begin = 0;
+		range.End = 4 * sizeof(float);
+
+		void* data;
+		if (SUCCEEDED(d3dRingBuffer.buffer->Map(0, &range, &data))) {
+			float* color = (float*)data;
+			color[0] = 1.f;
+			color[1] = 1.f;
+			color[2] = 1.f;
+			color[3] = 1.f;
+
+			d3dRingBuffer.buffer->Unmap(0, &range);
+		}
+	}
 
 	ID3D12CommandAllocator* d3dAllocator = gpu_get_command_allocator();
 
@@ -68,7 +102,7 @@ void draw_frame()
 
 	gpu_color_buffer* const cb          = gpu_get_system_color_buffer();
 	gpu_depth_stencil_buffer* const dsb = gpu_get_system_depth_stencil_buffer();
-
+	
 	gpu_resource_barrier barrier = {};
 	
 	gpu_resource_barrier_clear(&barrier);
@@ -97,11 +131,12 @@ void draw_frame()
 	scissor.left = 0;
 	scissor.right = 800;
 
+	
 	d3dCmdList->RSSetViewports(1, &vp);
 	d3dCmdList->RSSetScissorRects(1, &scissor);
-
 	d3dCmdList->SetPipelineState(d3dPso);
 	d3dCmdList->SetGraphicsRootSignature(d3dSignature);
+	d3dCmdList->SetGraphicsRootConstantBufferView(0, d3dCBV);
 	d3dCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	d3dCmdList->OMSetRenderTargets(1, cb->handle, FALSE, &dsb->handle);
 	d3dCmdList->OMSetStencilRef(0);
@@ -118,7 +153,6 @@ void draw_frame()
 	ID3D12CommandQueue* queue = gpu_get_command_queue();
 	queue->ExecuteCommandLists(1, lists);
 
-
 	SAFE_RELEASE(d3dCmdList);
 
 	gpu_end_frame();
@@ -130,8 +164,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevIntance, LPSTR lpCmdLine,
 {
 	GPU_CALLBACKS callbacks;
 	callbacks.deinit = frame_deinit;
-	callbacks.init = frame_init;
-	callbacks.draw = draw_frame;
+	callbacks.init   = frame_init;
+	callbacks.draw   = draw_frame;
 
 	INT retval = gpu_start(hInstance, &callbacks, 800, 480);
 

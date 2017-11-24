@@ -39,6 +39,12 @@
     <ClCompile Include="src\gpu_pso.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\gpu_ring_buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gpu_text_drawer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\gpu.h">
@@ -71,12 +77,15 @@
     <ClInclude Include="src\gpu_ring_buffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\gpu_text_drawer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shader\quad.hlsl">
+    <FxCompile Include="shader\quad_ps.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
-    <FxCompile Include="src\quad_ps.hlsl">
+    <FxCompile Include="shader\quad_vs.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
   </ItemGroup>

@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26403.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3DFontRender", "D3DFontRender\D3DFontRender.vcxproj", "{15622105-FD9B-40A7-9384-B75C1C8D1909}"
+	ProjectSection(ProjectDependencies) = postProject
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1} = {96DB86EB-BDCA-412C-80E6-D96458263EB1}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hfloat", "..\hfloat\hfloat.vcxproj", "{96DB86EB-BDCA-412C-80E6-D96458263EB1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Debug|x64.ActiveCfg = Debug|x64
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Debug|x64.Build.0 = Debug|x64
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Debug|x86.ActiveCfg = Debug|Win32
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Debug|x86.Build.0 = Debug|Win32
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Release|x64.ActiveCfg = Release|x64
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Release|x64.Build.0 = Release|x64
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Release|x86.ActiveCfg = Release|Win32
+		{15622105-FD9B-40A7-9384-B75C1C8D1909}.Release|x86.Build.0 = Release|Win32
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Debug|x64.ActiveCfg = Debug|x64
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Debug|x64.Build.0 = Debug|x64
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Debug|x86.ActiveCfg = Debug|Win32
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Debug|x86.Build.0 = Debug|Win32
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Release|x64.ActiveCfg = Release|x64
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Release|x64.Build.0 = Release|x64
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Release|x86.ActiveCfg = Release|Win32
+		{96DB86EB-BDCA-412C-80E6-D96458263EB1}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

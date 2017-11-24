@@ -48,11 +48,11 @@ auto ring_buffer<size, alignment>::alloc(uint32_t size_) -> void*
 			}
 			else if (tail >= alignedsize) {
 				retval = buffer;
-				free -= alignedsize + (_countof(buffer) - head);
-				head = alignedsize;
+				free  -= alignedsize + (_countof(buffer) - head);
+				head   = alignedsize;
 			}
 		}
-		else //(head + alignedsize <= tail) 
+		else //if (head + alignedsize <= tail) 
 		{
 			retval = buffer + head;
 			free -= alignedsize;
