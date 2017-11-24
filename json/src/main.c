@@ -41,18 +41,27 @@ char* load_json_file_from_cmd_line(int argc_, const char** cmdline_)
 int main(int argc, char** argv)
 {
 	const char* jText = NULL;
-	
+
 	if (argc < 2) {
 		fprintf(stderr, "Usage: json <filename>\n");
 		return 0;
 	}
-	
+
 	jText = load_json_file_from_cmd_line(argc, argv);
 	if (jText == NULL) {
 		return -1;
 	}
 
-	json_parse(jText);
+	struct jtokenizer tokenizer;
+	jtokenizer_init(jText, &tokenizer);
 
-	free(jText);
+	struct jtoken_desc jdesc;
+	while (get_next_jtoken_desc(&tokenizer, &jdesc) == 0)
+	{
+		int stop = 10;
+	}
+	
+	//json_parse(jText);
+
+	free((void*)jText);
 }

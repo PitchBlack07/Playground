@@ -1,4 +1,6 @@
 {
 "footer" : null
 "header\"" : [ { "string" : "value" }, { "number": 43 } ],
+"metainfo" : -12.34,
+"exponent" : [ 12e3, 13e+4, 15e-5, 0.34e+4, 0.004E-5 ]
 }
