@@ -35,3 +35,17 @@ void shuffle_data_set(struct dataset* dataset_, uint32_t count_)
 		dataset_[rndidx] = oldSet;
 	}
 }
+
+void shuffle_uint32(uint32_t* data_, uint32_t count_)
+{
+	uint32_t i;
+	for (i = count_; i > 1; i--)
+	{
+		const uint32_t swapidx = i - 1;
+		const uint32_t rndidx  = pcg32_boundedrand(swapidx);
+
+		uint32_t oldint = data_[swapidx];
+		data_[swapidx]  = data_[rndidx];
+		data_[rndidx]   = oldint;
+	}
+}

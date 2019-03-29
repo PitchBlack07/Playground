@@ -5,11 +5,55 @@
 #include <hash/fnv1a.h>
 #include <hash/robinhood.h>
 #include <hash/chaining.h>
+#include <hash/chaininglist.h>
 #include <pcg/pcg_basic.h>
 #include <test/dataset.h>
 
-static const uint32_t DataCount = (1U << 24);
+typedef enum action_state
+{
+	ACTION_STATE_INSERT,
+	ACTION_STATE_FIND,
+	ACTION_STATE_REMOVE
+} action_state_t;
+
+struct test_action
+{
+	uint16_t       actionId;
+	uint16_t       findId;
+	uint32_t       key;
+	uint32_t       value;
+};
+
+static const uint32_t DataCount =  (1U << 22);
 static uint64_t PerformanceFrequency;
+
+struct test_action* create_test_actions(uint32_t count_)
+{
+	struct test_action* actions = malloc(sizeof(struct test_action) * count_);
+	for (uint32_t i = 0; i < count_; ++i)
+	{
+		actions[i].actionId = ACTION_STATE_INSERT;
+		actions[i].findId   = 0;
+		actions[i].value    = pcg32_random();
+		actions[i].key      = fnv1a32(&actions[i].value, sizeof(actions[i].value), FNV_OFFSET_BIAS);
+	}
+
+	return actions;
+}
+
+uint32_t* create_action_triggers(uint32_t count_)
+{
+	uint32_t* m = malloc(4 * count_ * sizeof(uint32_t));
+	uint32_t* mm = m;
+
+	for (uint32_t j = 0; j < 4; ++j) {
+		for (uint32_t i = 0; i < count_; ++i) {
+			*mm++ = i;
+		}
+	}
+
+	return m;
+}
 
 static void LoadPerformanceFrequency()
 {
@@ -94,45 +138,191 @@ static void run_chaining_insertion_test(struct dataset* dataset_, uint32_t size_
 	fclose(f);
 }
 
+static void run_chaining_list_insertion_test(struct dataset* dataset_, uint32_t size_)
+{
+	uint32_t i, j;
+	uint64_t t0, t1, tdiff, freq;
+	QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
+
+	FILE* f;
+	if (fopen_s(&f, "chaining_list_insertion_test.txt", "w") != 0)
+	{
+		return;
+	}
+
+	for (i = 32768; i <= size_; i += 32768)
+	{
+		struct chaining_list_hashmap hashmap;
+		chaining_list_hashmap_init_sized(&hashmap, 25);
+
+		QueryPerformanceCounter((LARGE_INTEGER*)&t0);
+
+		for (j = 0; j < i; ++j)
+		{
+			chaining_list_hashmap_insert(&hashmap, dataset_[j].key, dataset_[j].value);
+		}
+
+		QueryPerformanceCounter((LARGE_INTEGER*)&t1);
+
+		tdiff = t1 - t0;
+
+		double deltaT = (double)(tdiff) / freq;
+
+		fprintf(f, "%u, %f\n", i, deltaT);
+		printf("Executing run %u of %u (%f)\n", i, size_, (double)i / (double)size_);
+
+		chaining_list_hashmap_deinit(&hashmap);
+	}
+
+	fclose(f);
+}
+
+static void run_robin_hood_full_test(struct test_action* actions, uint32_t count)
+{
+	uint32_t i, j;
+	uint64_t t0, t1, tdiff, freq;
+	QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
+
+	FILE* f;
+	if (fopen_s(&f, "robin_hood_full_test.txt", "w") != 0)
+	{
+		return;
+	}
+
+	for (i = 32768; i <= count; i += 32768) {
+
+		uint32_t* triggers = create_action_triggers(i);
+		shuffle_uint32(triggers, 4 * i);
+
+		QueryPerformanceCounter((LARGE_INTEGER*)&t0);
+
+		struct robin_hood_hashmap hashmap;
+		robin_hood_hashmap_init(&hashmap);
+
+		for (j = 0; j < 4 * i; ++j) {
+			uint32_t index = triggers[j];
+			struct test_action* action = actions + index;
+
+			switch (action->actionId)
+			{
+			case ACTION_STATE_INSERT:
+				robin_hood_hashmap_insert(&hashmap, action->key, action->value);
+				action->actionId = ACTION_STATE_FIND;
+				break;
+
+			case ACTION_STATE_FIND:
+				robin_hood_hashmap_find(&hashmap, action->key);
+				if (action->findId < 1)
+				{
+					action->findId++;
+				}
+				else
+				{
+					action->actionId = ACTION_STATE_REMOVE;
+				}
+				break;
+
+			case ACTION_STATE_REMOVE:
+				robin_hood_hashmap_remove(&hashmap, action->key);
+				break;
+			}
+		}
+
+		robin_hood_hashmap_deinit(&hashmap);
+
+		QueryPerformanceCounter((LARGE_INTEGER*)&t1);
+		free(triggers);
+		tdiff = t1 - t0;
+
+		double deltaT = (double)(tdiff) / freq;
+
+		fprintf(f, "%u, %f\n", i, deltaT);
+		printf("Executing run %u of %u (%f)\n", i, count, (double)i / (double)count);
+	}
+
+	fclose(f);
+}
+
+static void run_chaining_full_test(struct test_action* actions, uint32_t count)
+{
+	uint32_t i, j;
+	uint64_t t0, t1, tdiff, freq;
+	QueryPerformanceFrequency((LARGE_INTEGER*)&freq);
+
+	FILE* f;
+	if (fopen_s(&f, "chaining_full_test.txt", "w") != 0)
+	{
+		return;
+	}
+
+	for (i = 32768; i <= count; i += 32768) {
+
+		uint32_t* triggers = create_action_triggers(i);
+		shuffle_uint32(triggers, 4 * i);
+
+		QueryPerformanceCounter((LARGE_INTEGER*)&t0);
+
+		struct chaining_hashmap hashmap;
+		chaining_hashmap_init(&hashmap);
+
+		for (j = 0; j < 4 * i; ++j) {
+			uint32_t index = triggers[j];
+			struct test_action* action = actions + index;
+
+			switch (action->actionId)
+			{
+			case ACTION_STATE_INSERT:
+				chaining_hashmap_insert(&hashmap, action->key, action->value);
+				action->actionId = ACTION_STATE_FIND;
+				break;
+
+			case ACTION_STATE_FIND:
+				chaining_hashmap_find(&hashmap, action->key);
+				if (action->findId < 1)
+				{
+					action->findId++;
+				}
+				else
+				{
+					action->actionId = ACTION_STATE_REMOVE;
+				}
+				break;
+
+			case ACTION_STATE_REMOVE:
+				chaining_hashmap_remove(&hashmap, action->key);
+				break;
+			}
+		}
+
+		chaining_hashmap_deinit(&hashmap);
+
+		QueryPerformanceCounter((LARGE_INTEGER*)&t1);
+		free(triggers);
+		tdiff = t1 - t0;
+
+		double deltaT = (double)(tdiff) / freq;
+
+		fprintf(f, "%u, %f\n", i, deltaT);
+		printf("Executing run %u of %u (%f)\n", i, count, (double)i / (double)count);
+	}
+
+	fclose(f);
+}
 int main(int argc, char** argv)
 {
 	pcg32_srandom(42u, 54u);
 	LoadPerformanceFrequency();
 
 	struct dataset* ds = generate_random_data_set(DataCount);
-
-	//struct chaining_hashmap hashmap;
-	//chaining_hashmap_init(&hashmap);
-
-	//for (uint32_t i = 0; i < DataCount; ++i)
-	//{
-	//	chaining_hashmap_insert(&hashmap, ds[i].key, ds[i].value);
-	//}
-
-	//uint32_t maxlen = 0;
-	//uint32_t lencnt = 0;
-
-	//for (uint32_t i = 0; i < hashmap.size; ++i)
-	//{
-	//	uint32_t t = chaining_hashmap_keycount(&hashmap, i);
-	//	maxlen = max(maxlen, t);
-	//}
-
-	//uint32_t* buckets = malloc(sizeof(uint32_t) * (maxlen+1));
-	//memset(buckets, 0, sizeof(uint32_t) * (maxlen + 1));
-	//for (uint32_t i = 0; i < hashmap.size; ++i)
-	//{
-	//	uint32_t t = chaining_hashmap_keycount(&hashmap, i);
-	//	buckets[t]++;
-	//}
-
-
-
-	//chaining_hashmap_deinit(&hashmap);
+	struct test_action* actions = create_test_actions(DataCount);
 
 	//run_robin_hood_insertion_test(ds, DataCount);
-	run_chaining_insertion_test(ds, DataCount);
+	//run_chaining_insertion_test(ds, DataCount);
+	//run_chaining_list_insertion_test(ds, DataCount);
+	//run_robin_hood_full_test(actions, DataCount);
+	run_chaining_full_test(actions, DataCount);
 
+	free(actions);
 	free(ds);
 
 	//uint64_t freq, time0, time1;

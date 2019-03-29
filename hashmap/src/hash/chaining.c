@@ -84,7 +84,6 @@ static int32_t chaining_hashmap_increase_capacity(struct chaining_hashmap* map_)
 }
 
 
-
 int32_t chaining_hashmap_insert(struct chaining_hashmap* hashmap_, uint32_t key_, uint32_t value_)
 {
 	const uint32_t capacity = (1U << hashmap_->shift);
