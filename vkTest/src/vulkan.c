@@ -15,6 +15,8 @@ DECLARE_VK_FUNCTION(vkEnumerateInstanceExtensionProperties);
 DECLARE_VK_FUNCTION(vkEnumerateInstanceLayerProperties);
 DECLARE_VK_FUNCTION(vkGetDeviceProcAddr);
 DECLARE_VK_FUNCTION(vkGetPhysicalDeviceProperties);
+DECLARE_VK_FUNCTION(vkCreateWin32SurfaceKHR);
+DECLARE_VK_FUNCTION(vkDestroySurfaceKHR);
 
 void LoadVulkan()
 {
@@ -52,6 +54,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(
 	if(r == VK_SUCCESS)
 	{
 		LOAD_VK_FUNCTION_EX(*pInstance, vkDestroyInstance);
+		LOAD_VK_FUNCTION_EX(*pInstance, vkCreateWin32SurfaceKHR);
+		LOAD_VK_FUNCTION_EX(*pInstance, vkDestroySurfaceKHR);
 	}
 
 	return r;
@@ -99,3 +103,19 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties(
 	vkGetPhysicalDeviceProperties__impl(physicalDevice, pProperties);
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateWin32SurfaceKHR(
+	VkInstance                                  instance,
+	const VkWin32SurfaceCreateInfoKHR*          pCreateInfo,
+	const VkAllocationCallbacks*                pAllocator,
+	VkSurfaceKHR*                               pSurface)
+{
+	return vkCreateWin32SurfaceKHR__impl(instance, pCreateInfo, pAllocator, pSurface);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkDestroySurfaceKHR(
+	VkInstance                                  instance,
+	VkSurfaceKHR                                surface,
+	const VkAllocationCallbacks*                pAllocator)
+{
+	vkDestroySurfaceKHR__impl(instance, surface, pAllocator);
+}

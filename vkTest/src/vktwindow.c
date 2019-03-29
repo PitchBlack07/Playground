@@ -4,10 +4,11 @@
 #include <vktwindow.h>
 #include <vktutils.h>
 
-static ATOM       WndClass;
-static HWND       hWnd;
-static HINSTANCE  hInstance;
-static VkInstance vkInstance;
+static ATOM         WndClass;
+static HWND         hWnd;
+static HINSTANCE    hInstance;
+static VkInstance   vkInstance;
+static VkSurfaceKHR vkSurface;
 
 static VktVersion  vktVersion;
 static const char* vktActiveExtensions[16];
@@ -50,6 +51,8 @@ int32_t vktInit(const VktInitilizationInfo* info_) {
 	}
 
 	vktVersion = vktGetVersion();
+
+
 	return 0;
 }
 
@@ -61,11 +64,28 @@ void vktDeinit()
 
 MESSAGE_HANDLER(WM_CREATE)
 {
-	return 0;
+	VkWin32SurfaceCreateInfoKHR vkCreateInfo;
+	vkCreateInfo.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	vkCreateInfo.pNext     = NULL;
+	vkCreateInfo.flags     = 0;
+	vkCreateInfo.hinstance = hInstance;
+	vkCreateInfo.hwnd      = hwnd_;
+
+	if (vkCreateWin32SurfaceKHR(vkInstance, &vkCreateInfo, NULL, &vkSurface) == VK_SUCCESS)
+	{
+		return 0;
+	}
+
+	return -1;
 }
 
 MESSAGE_HANDLER(WM_CLOSE)
 {
+	if (vkSurface)
+	{
+		vkDestroySurfaceKHR(vkInstance, vkSurface, NULL);
+	}
+	
 	DestroyWindow(hwnd_);
 	return 0;
 }

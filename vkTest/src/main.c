@@ -21,6 +21,8 @@ static const char* layers[] = {
 
 int main(int argc, char** argv)
 {
+	int32_t retVal;
+
 	VktInitilizationInfo info;
 	info.Extensions.Names = extensions;
 	info.Extensions.Count = _countof(extensions);
@@ -29,24 +31,8 @@ int main(int argc, char** argv)
 	
 	vktInit(&info);
 	vktCreateWindow(800, 480);
-	vktStartMessageLoop();
+	retVal = vktStartMessageLoop();
+	vktDeinit();
 
-	//PrintExtensions();
-	//PrintLayers();
-	//uint32_t version;
-
-	//vkEnumerateInstanceVersion(&version);
-
-	//uint32_t major = VK_VERSION_MAJOR(version);
-	//uint32_t minor = VK_VERSION_MINOR(version);
-
-
-	//
-	//const char* supportedExtensions[_countof(extensions)] = {0};
-	//const char* supportedLayers[_countof(layers)] = { 0 };
-
-	//const uint32_t enabledExtensions = SelectSupportedExtensions(extensions, supportedExtensions, _countof(extensions));
-	//const uint32_t enabledLayers = SelectSupportedLayers(layers, supportedLayers, _countof(layers));
-
-	return 0;
+	return retVal;
 }
