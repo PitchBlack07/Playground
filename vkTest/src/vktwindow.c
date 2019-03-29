@@ -1,23 +1,88 @@
 
 #include <Windows.h>
 #include <vulkan.h>
+#include <vktwindow.h>
+#include <vktutils.h>
 
 static ATOM       WndClass;
 static HWND       hWnd;
 static HINSTANCE  hInstance;
 static VkInstance vkInstance;
 
+static VktVersion  vktVersion;
+static const char* vktActiveExtensions[16];
+static const char* vktActiveLayers[16];
+
+#define MESSAGE_HANDLER(msg__) static LRESULT msg__##Handler(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
+#define INVOKE_MESSAGE_HANDLER(msg__) case msg__: return msg__##Handler(hwnd_, msg_, wparam_, lparam_)
+
+extern void LoadVulkan();
+extern void UnloadVulkan();
+
+int32_t vktInit(const VktInitilizationInfo* info_) {
+	
+	LoadVulkan();
+
+	const uint32_t enabledLayers     = vktSelectSupportedLayers(info_->Layers.Names, vktActiveLayers, info_->Layers.Count);
+	const uint32_t enabledExtensions = vktSelectSupportedExtensions(info_->Extensions.Names, vktActiveExtensions, info_->Extensions.Count);
+
+	VkApplicationInfo appInfo;
+	appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	appInfo.pNext              = NULL;
+	appInfo.pApplicationName   = "vkTest";
+	appInfo.applicationVersion = 1;
+	appInfo.pEngineName        = "vkTestEngine";
+	appInfo.apiVersion         = VK_MAKE_VERSION(1, 0, 0);
+
+	VkInstanceCreateInfo info;
+	info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	info.pNext                   = NULL;
+	info.flags                   = 0;
+	info.pApplicationInfo        = &appInfo;
+	info.enabledLayerCount       = enabledLayers;
+	info.ppEnabledLayerNames     = vktActiveLayers;
+	info.enabledExtensionCount   = enabledExtensions;
+	info.ppEnabledExtensionNames = vktActiveExtensions;
+
+	if (VK_SUCCESS != vkCreateInstance(&info, NULL, &vkInstance))
+	{
+		return -1;
+	}
+
+	vktVersion = vktGetVersion();
+	return 0;
+}
+
+void vktDeinit()
+{
+	vkDestroyInstance(vkInstance, NULL);
+	UnloadVulkan();
+}
+
+MESSAGE_HANDLER(WM_CREATE)
+{
+	return 0;
+}
+
+MESSAGE_HANDLER(WM_CLOSE)
+{
+	DestroyWindow(hwnd_);
+	return 0;
+}
+
+MESSAGE_HANDLER(WM_DESTROY)
+{
+	PostQuitMessage(0);
+	return 0;
+}
+
 static LRESULT CALLBACK vktWndProc(HWND hwnd_, UINT msg_, WPARAM wparam_, LPARAM lparam_)
 {
 	switch (msg_)
 	{
-	case WM_CLOSE:
-		DestroyWindow(hwnd_);
-		return 0;
-
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0;
+	INVOKE_MESSAGE_HANDLER(WM_CREATE);
+	INVOKE_MESSAGE_HANDLER(WM_CLOSE);
+	INVOKE_MESSAGE_HANDLER(WM_DESTROY);
 
 	default:
 		return DefWindowProc(hwnd_, msg_, wparam_, lparam_);

@@ -4,7 +4,7 @@
 #include <vulkan.h>
 #include <stdio.h>
 #include <string.h>
-uint32_t SelectSupportedExtensions(const char* const* requested_, const char** supported_, uint32_t size_)
+uint32_t vktSelectSupportedExtensions(const char* const* requested_, const char** supported_, uint32_t size_)
 {
 	uint32_t k = 0;
 	uint32_t count = 0;
@@ -30,7 +30,7 @@ uint32_t SelectSupportedExtensions(const char* const* requested_, const char** s
 	return k;
 }
 
-uint32_t SelectSupportedLayers(const char* const* requested_, const char** supported_, uint32_t size_) 
+uint32_t vktSelectSupportedLayers(const char* const* requested_, const char** supported_, uint32_t size_) 
 {
 	uint32_t k = 0;
 	uint32_t count = 0;
@@ -54,4 +54,55 @@ uint32_t SelectSupportedLayers(const char* const* requested_, const char** suppo
 		FREE_MEMORY(properties);
 	}
 	return k;
+}
+
+void vkPrintAvaiableExtensions()
+{
+	uint32_t count = 0;
+	vkEnumerateInstanceExtensionProperties(NULL, &count, NULL);
+	if (count)
+	{
+		uint32_t i;
+		VkExtensionProperties* properties = ALLOC_POD_ARRAY(VkExtensionProperties, count);
+		vkEnumerateInstanceExtensionProperties(NULL, &count, properties);
+
+		for (i = 0; i < count; ++i) {
+			printf("vkExtension %0u: %s\n", i, properties[i].extensionName);
+		}
+
+		FREE_MEMORY(properties);
+	}
+}
+
+void vktPrintAvailableLayers()
+{
+	uint32_t count = 0;
+	vkEnumerateInstanceLayerProperties(&count, NULL);
+	if (count) {
+
+		VkLayerProperties* const properties = ALLOC_POD_ARRAY(VkLayerProperties, count);
+		if (properties) {
+			uint32_t i = 0;
+			vkEnumerateInstanceLayerProperties(&count, properties);
+
+			for (i = 0; i < count; ++i) {
+				printf("vkLayer %0u: %s\n", i, properties[i].layerName);
+			}
+		}
+		FREE_MEMORY(properties);
+	}
+}
+
+VktVersion vktGetVersion()
+{
+	uint32_t api = 0;
+	vkEnumerateInstanceVersion(&api);
+
+	VktVersion v = { 
+		.Major = VK_VERSION_MAJOR(api),
+		.Minor = VK_VERSION_MINOR(api),
+		.Build = VK_VERSION_PATCH(api) 
+	};
+
+	return v;
 }
