@@ -20,6 +20,6 @@ void vktfree(void* ptr_)
 #ifndef NDEBUG
 	_free_dbg(ptr_, _NORMAL_BLOCK);
 #else
-	free(ptr_, _NORMAL_BLOCK);
+	free(ptr_);
 #endif
 }
