@@ -26,8 +26,8 @@ int main(int argc, char** argv)
 	VktInitilizationInfo info;
 	info.Extensions.Names = extensions;
 	info.Extensions.Count = _countof(extensions);
-	info.Layers.Names     = layers;
-	info.Layers.Count     = _countof(layers);
+	info.Layers.Names =  layers;
+	info.Layers.Count = _countof(layers);
 	
 	vktInit(&info);
 	vktCreateWindow(800, 480);
