@@ -1,38 +1,49 @@
 #include <stdint.h>
-#include <vulkan.h>
 #include <Windows.h>
 #include <stdio.h>
 #include <vktMemory.h>
 #include <vktutils.h>
 #include <vktwindow.h>
+#include <libvk.h>
 
-extern void LoadVulkan();
-extern void UnloadVulkan();
-
-static const char* extensions[] =
-{
-	"VK_KHR_surface",
-	"VK_KHR_win32_surface",
+static const char* extensions[] = {
+    "VK_KHR_surface",
+    "VK_KHR_win32_surface"
 };
 
 static const char* layers[] = {
-	"VK_LAYER_LUNARG_standard_validation"
+    "VK_LAYER_LUNARG_standard_validation"
 };
 
 int main(int argc, char** argv)
 {
-	int32_t retVal;
+    uint32_t ecount = _countof(extensions);
+    uint32_t lcount = _countof(layers);
+    uint32_t vkVersion;
 
-	VktInitilizationInfo info;
-	info.Extensions.Names = extensions;
-	info.Extensions.Count = _countof(extensions);
-	info.Layers.Names =  layers;
-	info.Layers.Count = _countof(layers);
-	
-	vktInit(&info);
-	vktCreateWindow(800, 480);
-	retVal = vktStartMessageLoop();
-	vktDeinit();
+    const VkResult success = libvk_load_vulkan(NULL, NULL, &vkVersion);
+    if (success != VK_SUCCESS) {
+        return -1;
+	}
 
-	return retVal;
+	libvk_print_layers_and_extensions_to_console();
+
+	//libvk_create_application("myapp", lcount, layers, ecount, extensions);
+
+    //int32_t retVal = 0;
+
+    //VktInitilizationInfo info;
+    //info.Extensions.Names = extensions;
+    //info.Extensions.Count = _countof(extensions);
+    //info.Layers.Names =  layers;
+    //info.Layers.Count = _countof(layers);
+    //
+    //vktInit(&info);
+    //vktCreateWindow(800, 480);
+    //retVal = vktStartMessageLoop();
+    //vktDeinit();
+
+	libvk_unload_vulkan(NULL);
+    return 0;
+    //return retVal;
 }
