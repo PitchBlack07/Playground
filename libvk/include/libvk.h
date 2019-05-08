@@ -3,6 +3,7 @@
 
 #include <loader/vkloader.h>
 #include <utils/vkutils.h>
+#include <utils/vkwindow.h>
 
 VkResult libvk_get_supported_extensions(const char* layer_, VkExtensionProperties** propertiesOut_, uint32_t* countOut_);
 VkBool32 libvk_is_extension_supported(const char* ext_, const VkExtensionProperties* extensions_, uint32_t count_);

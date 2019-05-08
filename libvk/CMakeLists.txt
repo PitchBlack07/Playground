@@ -8,10 +8,12 @@ set(SOURCES
 	include/loader/vkloader.h
 	include/loader/vk.h
 	include/utils/vkutils.h
+	include/utils/vkwindow.h
 	src/libvk.c
 	src/loader/vkloader.c
 	src/loader/vk.c
-	src/utils/vkutils.c)
+	src/utils/vkutils.c
+	src/utils/vkwindow.c)
 
 set(LIBVK_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include CACHE INTERNAL "")
 add_library(libvk ${SOURCES})

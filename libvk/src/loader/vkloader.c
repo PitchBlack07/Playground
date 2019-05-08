@@ -20,7 +20,7 @@ VkResult libvk_load_vulkan(const VkInstanceCreateInfo* vkCreateInfo_, VkAllocati
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
-        libvk_load_default_functions((PFN_vkGetInstanceProcAddr )GetProcAddress(vkLibrary, TEXT("vkGetInstanceProcAddr")));
+        libvk_load_default_functions((PFN_vkGetInstanceProcAddr)GetProcAddress(vkLibrary, TEXT("vkGetInstanceProcAddr")));
     }
 
     if (vkVersionOut_) {
@@ -36,7 +36,7 @@ VkResult libvk_load_vulkan(const VkInstanceCreateInfo* vkCreateInfo_, VkAllocati
         return success;
     }
 
-	libvk_load_instance_functions(vkInstance);
+    libvk_load_instance_functions(vkInstance);
 
     return success;
 }
@@ -49,4 +49,9 @@ void libvk_unload_vulkan(VkAllocationCallbacks* vkAllocator_)
     }
 
     FreeLibrary(vkLibrary);
+}
+
+VkInstance libvkGetVkInstance()
+{
+    return vkInstance;
 }

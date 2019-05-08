@@ -10,4 +10,6 @@
 VkResult libvk_load_vulkan(const VkInstanceCreateInfo* vkCreateInfo_, VkAllocationCallbacks* vkAllocator_, uint32_t* vkVersionOut_);
 void     libvk_unload_vulkan(VkAllocationCallbacks* vkAllocator_);
 
+VkInstance libvkGetVkInstance();
+
 #endif

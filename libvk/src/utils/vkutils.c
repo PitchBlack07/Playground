@@ -3,6 +3,9 @@
 #include <loader/vk.h>
 #include <stdio.h>
 
+extern inline void* libvkAllocConditional(size_t size_, void* buffer_, size_t bufferSize_);
+extern inline void  libvkFreeConditional(void* ptr_, void* buffer_);
+
 void* libvk_alloc_conditional(size_t size_, void* buffer_, size_t bufferSize_)
 {
     if (size_ <= bufferSize_)
@@ -92,6 +95,41 @@ VkResult libvk_print_extensions_to_console(const char* layer_)
 
     printf("%s", vkExtensions[ecount - 1].extensionName);
 
-	libvk_free_conditional(vkExtensions, ebuffer);
+    libvk_free_conditional(vkExtensions, ebuffer);
     return success;
+}
+
+static const char* GetVkPhysicalDeviceTypeName(VkPhysicalDeviceType t_)
+{
+    switch (t_) {
+    case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+        return "Other";
+
+    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+        return "GPU (Integrated)";
+
+    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+        return "GPU (Discrete)";
+
+    case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+        return "GPU (Virtual)";
+
+    case VK_PHYSICAL_DEVICE_TYPE_CPU:
+        return "CPU";
+
+    default:
+        return "Unknown VkPhysicalDeviceType";
+    }
+}
+
+VkResult libvkPrintVkPhysicalDeviceProperties(const VkPhysicalDeviceProperties* p_)
+{
+    printf("VkDevice loaded:\n");
+    printf("Name:           %s [%s]\n", p_->deviceName, GetVkPhysicalDeviceTypeName(p_->deviceType));
+    printf("API Version:    %u.%u.%u\n", VK_VERSION_MAJOR(p_->apiVersion), VK_VERSION_MINOR(p_->apiVersion), VK_VERSION_PATCH(p_->apiVersion));
+	printf("Driver Version: %u\n", p_->driverVersion);
+    printf("VendorID:       %u\n", p_->vendorID);
+    printf("DeviceID:       %u\n", p_->deviceID);
+
+    return VK_SUCCESS;
 }
