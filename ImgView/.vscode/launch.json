@@ -1,0 +1,15 @@
+{
+    "configurations": [
+    
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Launch",
+        "program": "${workspaceFolder}/bin/imgview",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "preLaunchTask": "Compile",
+        "sourceLanguages": ["odin"]
+    }
+    ]
+}
